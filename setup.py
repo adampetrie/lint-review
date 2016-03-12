@@ -3,8 +3,6 @@ from setuptools import setup, find_packages
 PACKAGE_NAME = "lintreview"
 VERSION = "0.5.2"
 
-requirements = open('./requirements.txt', 'r')
-
 setup(
     name=PACKAGE_NAME,
     version=VERSION,
@@ -19,6 +17,5 @@ setup(
         'console_scripts': [
             'lintreview = lintreview.cli:main',
         ],
-    },
-    install_requires=requirements.readlines(),
+    }
 )
