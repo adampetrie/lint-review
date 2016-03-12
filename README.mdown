@@ -1,8 +1,5 @@
 # Lint Review
 
-[![Build Status](https://api.travis-ci.org/markstory/lint-review.svg?branch=master)](https://travis-ci.org/markstory/lint-review)
-[![Docker Repository on Quay.io](https://quay.io/repository/freshbooks/lint-review/status "Docker Repository on Quay.io")](https://quay.io/repository/freshbooks/lint-review)
-
 Lint Review helps automate a tedious part of code review - enforcing coding
 standards. By using the github API Lint Review runs a repository's configured linters
 and updates pull requests with line comments where lint errors would be introduced.
@@ -20,290 +17,211 @@ Lint Review runs as two processes. A web process handles accepting webhooks from
 and a celery process handles cloning repositories and running lint tools. You'll also
 need to have rabbitmq-server running.
 
+## What's on this fork?
 
-## Installation
+This fork is a modified version of lintreview that I configured to run on Heroku. 
+Everything else about it is the same as the original lint-review repo. A patch of
+exactly what changed is included below.
 
-You install Lint Review by cloning the repository and installing dependecies,
-or by using docker. If you are not using docker, it is recommended that you use
-`virtualenv` to save shaving yaks down the road.
-
-    git clone git://github.com/markstory/lint-review.git
-    cd lint-review
-    virtualenv env
-    source env/bin/activate
-    pip install .
-
-In addtion to installing the dependencies for lint-review you will also need to
-install the various lint tools you want to use. Lint-review requires that lint
-tools be installed relative to the source code. `pep8` and `flake8` will be
-installed as dependencies for lint-review, but any other tools will need to be
-installed using their respective installers. To install all the tools run the following:
-
-```bash
-# Install ruby tools
-bundle install --path ./bundle
-
-# Install javascript tools.
-npm install
-
-# Install PHP tools
-php composer.phar install
+## Patch
+```Diff
+  From 5aac0c688ec233791f5d3181fc3bdd4d7db96a50 Mon Sep 17 00:00:00 2001
+  From: Adam Petrie <adam.petrie@wishabi.com>
+  Date: Fri, 11 Mar 2016 09:32:26 -0500
+  Subject: [PATCH 1/4] Add cffi to requirements
+  
+  ---
+   requirements.txt | 1 +
+   1 file changed, 1 insertion(+)
+  
+  diff --git a/requirements.txt b/requirements.txt
+  index 9184bea..eca31b9 100644
+  --- a/requirements.txt
+  +++ b/requirements.txt
+  @@ -7,3 +7,4 @@ celery==3.0.19
+   mock==1.0.1
+   gunicorn==0.17.2
+   argparse>=1.2.0,<=1.3.0
+  +cffi
+  
+  From f898f1b6e3887efd169f3f8b5a919831bace5627 Mon Sep 17 00:00:00 2001
+  From: Adam Petrie <adam.petrie@wishabi.com>
+  Date: Fri, 11 Mar 2016 09:46:29 -0500
+  Subject: [PATCH 2/4] Add Procfile
+  
+  ---
+   Procfile | 2 ++
+   1 file changed, 2 insertions(+)
+   create mode 100644 Procfile
+  
+  diff --git a/Procfile b/Procfile
+  new file mode 100644
+  index 0000000..cb9a00e
+  --- /dev/null
+  +++ b/Procfile
+  @@ -0,0 +1,2 @@
+  +web: gunicorn -c settings.py lintreview.web:app
+  +worker: celery -A lintreview.tasks worker
+  
+  From 04f791f306280f0f7417e8ae4b3f176bbc6ca848 Mon Sep 17 00:00:00 2001
+  From: Adam Petrie <adam.petrie@wishabi.com>
+  Date: Fri, 11 Mar 2016 10:03:50 -0500
+  Subject: [PATCH 3/4] Use celery 3.1.23
+  
+  ---
+   requirements.txt | 2 +-
+   1 file changed, 1 insertion(+), 1 deletion(-)
+  
+  diff --git a/requirements.txt b/requirements.txt
+  index eca31b9..1a60280 100644
+  --- a/requirements.txt
+  +++ b/requirements.txt
+  @@ -3,7 +3,7 @@ github3.py==1.0.0a4
+   nose==1.2.1
+   pep8==1.5.7
+   flake8==2.2.2
+  -celery==3.0.19
+  +celery==3.1.23
+   mock==1.0.1
+   gunicorn==0.17.2
+   argparse>=1.2.0,<=1.3.0
+  
+  From cbcee1cf231cc07da8cc05645b99ef172e197365 Mon Sep 17 00:00:00 2001
+  From: Adam Petrie <adam.petrie@wishabi.com>
+  Date: Fri, 11 Mar 2016 19:41:10 -0500
+  Subject: [PATCH 4/4] Include setup.py in requirements.txt
+  
+  ---
+   requirements.txt |  1 +
+   settings.py      | 90 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+   setup.py         |  5 +---
+   3 files changed, 92 insertions(+), 4 deletions(-)
+   create mode 100644 settings.py
+  
+  diff --git a/requirements.txt b/requirements.txt
+  index 1a60280..08c217a 100644
+  --- a/requirements.txt
+  +++ b/requirements.txt
+  @@ -8,3 +8,4 @@ mock==1.0.1
+   gunicorn==0.17.2
+   argparse>=1.2.0,<=1.3.0
+   cffi
+  +-e .
+  diff --git a/settings.py b/settings.py
+  new file mode 100644
+  index 0000000..0165c1f
+  --- /dev/null
+  +++ b/settings.py
+  @@ -0,0 +1,90 @@
+  +import os
+  +
+  +def env(key, default, cast=str):
+  +    return cast(os.environ.get(key, default))
+  +
+  +
+  +# Webserver configuration
+  +#########################
+  +
+  +# gunicorn configuration
+  +bind = env('LINTREVIEW_GUNICORN_HOST', '127.0.0.1') + ':' + env('PORT', '5000')
+  +debug = env('LINTREVIEW_GUNICORN_DEBUG', True, bool)
+  +loglevel = env('LINTREVIEW_GUNICORN_LOGLEVEL', 'debug')
+  +
+  +# Basic flask config
+  +DEBUG = env('LINTREVIEW_FLASK_DEBUG', True, bool)
+  +TESTING = env('LINTREVIEW_TESTING', True, bool)
+  +SERVER_NAME = env('LINTREVIEW_SERVER_NAME', '127.0.0.1:5000')
+  +
+  +# Celery worker configuration
+  +#############################
+  +from kombu import Exchange, Queue
+  +
+  +# AMQP or other celery broker URL.
+  +# amqp paths should be in the form of user:pass@host:port//virtualhost
+  +BROKER_URL = env('RABBITMQ_BIGWIG_RX_URL', '')
+  +
+  +# Use json for serializing messages.
+  +CELERY_TASK_SERIALIZER = 'json'
+  +
+  +# Show dates and times in UTC
+  +CELERY_ENABLE_UTC = True
+  +
+  +
+  +# General project configuration
+  +###############################
+  +
+  +# Path where project code should be
+  +# checked out when reviews are done
+  +# Repos will be checked out into $WORKSPACE/$user/$repo/$number
+  +# directories to prevent collisions.
+  +WORKSPACE = env('LINTREVIEW_WORKSPACE', '/tmp/workspace')
+  +
+  +# This config file contains default settings for .lintrc
+  +# LINTRC_DEFAULTS = './lintrc_defaults.ini'
+  +
+  +
+  +# Github Configuration
+  +######################
+  +
+  +# Use GITHUB_URL when working with github:e
+  +GITHUB_URL = env('GITHUB_URL', 'https://api.github.com/')
+  +
+  +# Github username + password
+  +# This is the user that lintreview will use
+  +# to fetch repositories and leave review comments.
+  +# Set the GITHUB_PASSWORD environment variable first.
+  +# example: $ export GITHUB_PASSWORD=mygithubpassword
+  +GITHUB_USER = env('GITHUB_USERNAME', '')
+  +GITHUB_PASSWORD = env('GITHUB_PASSWORD', '')
+  +
+  +# You can also use an Oauth token for github, if you do
+  +# uncomment this line. Using a token will take precedence
+  +# over a username and password.
+  +GITHUB_OAUTH_TOKEN = env('GITHUB_OAUTH_TOKEN', None)
+  +
+  +# Set to a path containing a custom CA bundle.
+  +# This is useful when you have github:enterprise on an internal
+  +# network with self-signed certificates.
+  +SSL_CA_BUNDLE = None
+  +
+  +# After this many comments in a review, a single summary comment
+  +# should be posted instead of individual line comments. This helps
+  +# prevent really noisy reviews from slowing down github.
+  +SUMMARY_THRESHOLD = env('LINTREVIEW_SUMMARY_THRESHOLD', 50, int)
+  +
+  +# Status Configuration
+  +######################
+  +# Customize the build status integration name. Defaults to lintreview.
+  +# APP_NAME = 'lintreview'
+  +
+  +# Uncomment this option to enable adding an issue comment
+  +# whenever a pull request passes all checks.
+  +# OK_COMMENT = env('LINTREVIEW_OK_COMMENT',
+  +#                 ':+1: No lint errors found.')
+  +
+  +# Enable to apply a label when updating build status.
+  +# Pull requests that fail will have the label removed.
+  +# Customize the label name when label statuses are enabled.
+  +# OK_LABEL = env('LINTREVIEW_OK_LABEL', 'No lint errors')
+  diff --git a/setup.py b/setup.py
+  index 0dea83b..73e64ee 100644
+  --- a/setup.py
+  +++ b/setup.py
+  @@ -3,8 +3,6 @@
+   PACKAGE_NAME = "lintreview"
+   VERSION = "0.5.2"
+   
+  -requirements = open('./requirements.txt', 'r')
+  -
+   setup(
+       name=PACKAGE_NAME,
+       version=VERSION,
+  @@ -19,6 +17,5 @@
+           'console_scripts': [
+               'lintreview = lintreview.cli:main',
+           ],
+  -    },
+  -    install_requires=requirements.readlines(),
+  +    }
+   )
 ```
-
-Once the dependencies are installed you should configure the repositories you want to review.
-
-## Using Docker
-
-To use docker, you'll need to install both docker, docker-compose and possibly docker toolbox
-depending on your operating system. Once you have the docker installed, you can boot up lint-review
-into docker using:
-
-    docker build --tag=lintreview_image .
-    docker-compose up -d broker worker web
-
-Edit docker-composer.yml and customise your configuration by setting keys under environment for the
-web and worker processes. For the most basic installation you'll need to set at least `GITHUB_USERNAME`
-and `GITHUB_PASSWORD` (or `GITHUB_OAUTH_TOKEN`), and `LINTREVIEW_SERVER_NAME`.
-
-## Lint Review Configuration
-
-Lint review is configured through a settings file. Both the web app and celery process
-share the same configuration file, so configuration is easier to manage and share.
-
-* Copy the `settings.sample.py` to `settings.py`
-* Edit the required configuration options, or set the correct environment variables.
-* Set the `LINTREVIEW_SETTINGS` environment variable to the path
-  of your configuration files. In \*nix system this can be done via:
-
-      export LINTREVIEW_SETTINGS='/path/to/settings.py'
-
-* You can skip setting `LINTREVIEW_SETTINGS` if you're running lintreview from
-  a directory containing your `settings.py` file.
-
-You can also have per install configuration files by defining the `LINTRC_DEFAULTS` config
-option in your settings file. This file should be a `.lintrc` config file. It will be merged
-with each projects `.lintrc` before running tools. This gives you an easy way to have
-global configuration for tools.
-
-## Setting up Repositories
-
-Once you've configured the server processes, it is time to setup some
-repositories to be checked.
-
-### Installing github hooks
-
-Before Lint Review can check pull requests on a repository webhooks will need
-to be installed.  You can install webhooks by running the built-in command line
-tool:
-
-    source env/bin/activate
-    lintreview register mark awesome-stuff
-    
-Or, if you're using Docker:
-
-    docker-compose run web lintreview register mark awesome-stuff
-
-The above register webhooks for the given user & repository. You can use the
-`--user` and `--password` options to provide the repository admin credentials
-if the user lint-review runs as does not have admin access to the repository.
-You can also use the cli tool to remove webhooks:
-
-    source env/bin/activate
-    lintreview unregister mark awesome-stuff
-
-**Warning** The current web server name will be registered with github. Make sure
-it is configured properly before registering hooks, or you'll need to remove
-any registered hooks and start over.
-
-
-### .lintrc files
-
-Lint Review use hidden ini files to configure the tools used on each project. The
-`.lintrc` file defines the various linting tools and any arguments for each one. Lint
-tools must be tools Lint Review knows about. See [lint tools](#lint-tools) for available
-tools. A sample `.lintrc` file would look like.
-
-    [files]
-    ignore = generated/*
-        vendor/*
-
-    [tools]
-    linters = pep8, jshint
-
-    [tool_pep8]
-    ignore = W2,E401
-
-    [tool_jshint]
-    config = path/to/jshint.json
-
-The `[tools]` section is required, and `linters` should be a list of
-linters your project uses.  Each tool can also have a section prefixed with `tool_`
-to define additional configuration options for each tool. The documentation for
-each tool outlines which options are supported.
-
-The `[files]` section is optional and allows you to define ignore patterns. These patterns
-are used to find and exclude files when doing a review. Ignore patterns use glob expressions
-to find files. The patterns start at the reviewed repository root. If you need to ignore mulitple
-patterns separate them with new lines.
-
-
-## Running Lint Review
-
-After setting up configuration you'll need to start up both processes:
-
-    source env/bin/activate
-    gunicorn -c settings.py lintreview.web:app
-    celery -A lintreview.tasks worker
-
-Now when ever a pull request is opened or updated for a registered repository
-new jobs will be spun up and lint will be checked and commented on.
-
-
-## Lint tools
-
-### Python:
-
-#### Flake8
-
-Uses the [flake8](http://pypi.python.org/pypi/flake8) module to check code.
-
-*Options*
-
-* `ignore` Set which pep8 error codes you wish to ignore.
-* `exclude` Exclude files or directories which match these comma
-   separated patterns (default: .svn, CVS, .bzr, .hg, .git)
-* `filename` When parsing directories, only check filenames
-   matching these comma separated patterns (default: `*.py`)
-* `select` Select errors and warnings (e.g. E,W6)
-* `max-line-length` Set maximum allowed line length (default: 79)
-* `format` Set the error format [default|pylint|<custom>]
-* `max-complexity` McCabe complexity threshold
-* `snippet` Interacts with [flake8-snippets](https://pypi.python.org/pypi/flake8-snippets) allowing
-  you to trigger errors on specific snippets you want to disallow.
-
-These options are passed into flake8 as cli options.
-
-#### pep8
-
-Uses the [pep8](http://pypi.python.org/pypi/pep8/1.2) module to check code. 
-
-*Options*
-
-* `ignore` Set which pep8 error codes you wish to ignore.
-
-### PHP
-
-#### PHPCS
-
-Uses the [phpcs](http://pear.php.net/package/PHP_CodeSniffer) PEAR library
-to do style checks on PHP, Javascript and or CSS files.
-
-*Options*
-
-* `standard` The coding standard to use. By default the `PSR2` standard is used. You can
-  use any of the built-in standards or provide your own inside your project directory.
-* `extensions` The extensions to check. By default only `.php` files will be checked.
-* `tab_width` The number of spaces to convert tabs into, this is useful for projects using
-  tabs for indentation.
-
-### Javascript:
-
-#### JSCS
-
-Uses the [JSCS](http://jscs.info/) npm module to check javascript files. Before
-you can use this linter you'll need to install nodejs and the jscs npm package:
-
-    cd path/to/lintreview
-    npm install jscs
-
-*Options*
-
-* `config` Provide a path to the json config file for JSCS.
-* `preset` Set which JSCS preset you want to use. Unused if `config` is set.
-
-#### JSHint
-
-Uses the [jshint](http://jshint.org/) npm module to check javascript files. Before
-you can use this linter you'll need to install nodejs and the jshint npm package:
-
-    cd path/to/lintreview
-    npm install jshint
-
-*Options*
-
-* `config` Provide a path to the json config file for jshint.
-
-#### ESLint
-
-Uses the [eslint](http://eslint.org/) npm module to check javascript files. Before
-you can use this linter you'll need to install the eslint npm package:
-
-    cd path/to/lintreview
-    npm install eslint
-
-*Options*
-
-* `config` Provide a path to the json config file for eslint.
-
-### CSS:
-
-#### CSSLint
-
-Uses the [csslint](http://csslint.net/) npm module to check css files. Before
-you can use this linter you'll need to install nodejs and the csslint npm package:
-
-    cd path/to/lintreview
-    npm install csslint
-
-Both warnings and errors will be turned into code review comments. If you don't want 
-code review comments for specific rules, you should ignore them.
-
-*Options*
-
-* `ignore` A comma separated list of rule ids to ignore.
-
-### Ruby:
-
-#### RuboCop
-
-Uses the [rubocop](http://rubygems.org/gems/rubocop) gem to check ruby files.
-You'll need to install it to use it:
-
-    gem install rubocop
-
-*Options*
-
-* `display_cop_names` Set to `true` to pass display cop names in offense messages.
-
-`.rubocop.yml` files will be respected, as described
-[here](https://github.com/bbatsov/rubocop#configuration).
-
-### Puppet:
-
-#### puppet-lint
-
-Uses the [puppet-lint](http://rubygems.org/gems/rubocop) gem to check puppet manifests
-against the puppetlabs style guide.
-
-You'll need to install it to use it:
-
-    gem install puppet-lint
-
-*Options*
-
-No options. `.puppet-lintrc` files will be respected, to allow each project to disable
-checks. A list of checks can be found by running "puppet-lint --help"
-
-### Chef:
-
-#### Foodcritic
-
-Uses the [Foodcritic](http://www.foodcritic.io/) gem to check Chef files.
-You'll need to install Foodcritic:
-
-    gem install foodcritic
-
-*Options*
-
-* `path` If your cookbooks aren't stored in the root, use this to set the path
-  that foodcritic runs against. Example: `path = cookbooks`
