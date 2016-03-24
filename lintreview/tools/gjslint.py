@@ -37,8 +37,8 @@ class Gjslint(Tool):
             split=True,
             ignore_error=True)
 
-        if not output:
-            log.debug('No pep8 errors found.')
+        if re.search(r'no errors found', output[0]):
+            log.debug('No gjslint errors found.')
             return False
 
         """
